@@ -1,185 +1,111 @@
+import java.util.List;
 import java.util.Scanner;
 
 public class Main {
     public static void main(String[] args) {
-        Scanner input = new Scanner(System.in);
-        boolean isRunning = true;
+        Scanner scanner = new Scanner(System.in);
+
+        DBmanager db = new DBmanager();
+        boolean running = true;
 
         System.out.println("--- Διαχείρηση Αποθήκης ---");
 
-        String dbUrl = "jdbc:mysql://localhost:3306/warehouse_db";
-        String dbUser = "root";
-        String dbPass = "";
-
-        java.sql.Connection connection = null;
-
-        try {
-            connection = java.sql.DriverManager.getConnection(dbUrl, dbUser, dbPass);
-            System.out.println("{DB} Συνδέθηκε επιτυχώς!");
-        } catch (Exception e) {
-            System.out.println("{DB} Σφάλμα σύνδεσης! Error:");
-            e.printStackTrace();
-            return;
-        }
-
-        while(isRunning) {
-            System.out.println("\n Τι θέλεις να κάνεις;");
+        while(running) {
+            System.out.println("\n Επίλεξε ενέργεια:");
             System.out.println("1 -> Προσθήκη Προϊόντος");
-            System.out.println("2 -> Προβολή Αποθήκης");
-            System.out.println("3 -> Διαγραφή Προϊόντος");
-            System.out.println("4 -> Αλλαγή Στοιχεία Προϊόντος");
+            System.out.println("2 -> Προβολή Προϊόντων");
+            System.out.println("3 -> Ενημέρωση Προϊόντος");
+            System.out.println("4 -> Διαγραφή Προϊόντος");
             System.out.println("5 -> Έξοδος");
-            System.out.print("Δώσε επιλογή: ");
+            System.out.print("Επιλογή: ");
 
-            int choice = input.nextInt();
+            String choice = scanner.nextLine();
 
             switch(choice) {
-                case 1:
+                case "1":
                     System.out.println("\n[+] Ετοιμασία για προσθήκη..");
 
-                    input.nextLine();
+                    System.out.print("Όνομα προϊόντος: ");
+                    String name = scanner.nextLine();
 
-                    System.out.print("Δώσε όνομα προϊόντος: ");
-                    String newName = input.nextLine();
+                    System.out.print("Ποσότητα: ");
+                    int quantity = Integer.parseInt(scanner.nextLine());
 
-                    System.out.print("Δώσε ποσότητα: ");
-                    int newQty = input.nextInt();
+                    System.out.print("Τιμή: ");
+                    double price = Double.parseDouble(scanner.nextLine());
 
-                    System.out.print("Δώσε τιμή: ");
-                    double newPrice = input.nextDouble();
-
-                    try {
-                        String insertQuery = "INSERT INTO products (name, quantity, price) VALUES (?, ?, ?)";
-                        java.sql.PreparedStatement pstmt = connection.prepareStatement(insertQuery);
-
-                        pstmt.setString(1, newName);
-                        pstmt.setInt(2, newQty);
-                        pstmt.setDouble(3, newPrice);
-
-                        int rowsAdded = pstmt.executeUpdate();
-                        if (rowsAdded > 0) {
-                            System.out.println("Το προϊόν '" + newName + "' αποθηκεύτηκε στη βάση!");
-                        }
-
-                    } catch (Exception e) {
-                        System.out.println("Σφάλμα κατά την αποθήκευση: " + e.getMessage());
-                    }
+                    db.addProduct(name, quantity, price);
                     break;
-                case 2:
+
+                case "2":
                     System.out.println("\n[*] Φόρτωση δεδομένων αποθήκης..");
-                    try {
-                        java.sql.Statement statement = connection.createStatement();
 
-                        String query = "SELECT * FROM products";
-
-                        java.sql.ResultSet resultSet = statement.executeQuery(query);
-
-                        System.out.println("ID | Όνομα Προϊόντος | Ποσότητα | Τιμή");
-                        System.out.println("----------------------------------------------");
-
-                        while(resultSet.next()){
-                            int id = resultSet.getInt("id");
-                            String name = resultSet.getString("name");
-                            int qty = resultSet.getInt("quantity");
-                            double price = resultSet.getDouble("price");
-
-                            System.out.println(id + " | " + name + " | " + qty + " τεμ. | " + price + "€");
-                        }
-                    } catch (Exception e){
-                        System.out.println("Πρόβλημα κατά την ανάγνωση: " + e.getMessage());
+                    List<Product> products = db.getAllProducts();
+                    for (Product p : products) {
+                        System.out.println("ID: " + p.getId() +
+                                " | Όνομα: " + p.getName() +
+                                " | Ποσότητα: " + p.getQuantity() +
+                                " | Τιμή: " + p.getPrice() + "€");
                     }
                     break;
-                case 3:
+
+                case "3":
+                    System.out.println("\n[!] Ετοιμασία για ενημέρωση προϊόντων..");
+                    System.out.print("Δώσε το ID/id του προϊόντος για ενημέρωση: ");
+                    int updateId = Integer.parseInt(scanner.nextLine());
+
+                    Product oldProduct = db.getProductById(updateId);
+
+                    if (oldProduct == null) {
+                        System.out.println("Το προϊόν με ID/id " + updateId + " δεν βρέθηκε.");
+                    } else {
+                        System.out.println("Αφήστε κενό (Enter) για να κρατήσετε την παλιά τιμή.");
+
+                        System.out.print("Νέο Όνομα (Παλιό: " + oldProduct.getName() + "): ");
+                        String newName = scanner.nextLine();
+                        if (newName.trim().isEmpty()){
+                            newName = oldProduct.getName();
+                        }
+
+                        System.out.print("Νέα Ποσότητα (Παλιά: " + oldProduct.getQuantity() + "): ");
+                        String newQtyStr = scanner.nextLine();
+                        int newQty;
+                        if (newQtyStr.trim().isEmpty()) {
+                            newQty = oldProduct.getQuantity();
+                        } else {
+                            newQty = Integer.parseInt(newQtyStr);
+                        }
+
+                        System.out.print("Νέα Τιμή (Παλιά: " + oldProduct.getPrice() + "): ");
+                        String newPriceStr = scanner.nextLine();
+                        double newPrice;
+                        if (newPriceStr.trim().isEmpty()) {
+                            newPrice = oldProduct.getPrice();
+                        } else {
+                            newPrice = Double.parseDouble(newPriceStr);
+                        }
+
+                        db.updateProduct(updateId, newName, newQty, newPrice);
+                    }
+                    break;
+
+                case "4":
                     System.out.println("\n[-] Ετοιμασία για διαγραφή..");
-                    System.out.print("Δώσε το ID/id του προϊόντος που θες να διαγράψεις: ");
-                    int idToDelete = input.nextInt();
-
-                    try {
-                        String deleteQuery = "DELETE FROM products WHERE id = ?";
-                        java.sql.PreparedStatement pstmtDelete = connection.prepareStatement(deleteQuery);
-
-                        pstmtDelete.setInt(1, idToDelete);
-
-                        int rowsDeleted = pstmtDelete.executeUpdate();
-                        if (rowsDeleted > 0) {
-                            System.out.println("Το προϊόν με ID/id " + idToDelete + " διαγράφηκε!");
-                        } else {
-                            System.out.println("Δεν βρέθηκε προϊόν με αυτό το ID/id.");
-                        }
-                    } catch (Exception e) {
-                        System.out.println("Σφαλμα κατά τη διαγραφή: " + e.getMessage());
-                    }
+                    System.out.print("Δώστε το ID/id του προϊόντος για διαγραφή: ");
+                    int deleteId = Integer.parseInt(scanner.nextLine());
+                    db.deleteProduct(deleteId);
                     break;
-                case 4:
-                    System.out.println("\n[!] Ετοιμασία για αλλαγή στοιχείων..");
-                    System.out.print("Δώσε το ID/id του προϊόντος που θέλεις να αλλάξεις τα στοιχεία: ");
-                    int idToUpdate = input.nextInt();
 
-                    input.nextLine();
-
-                    try {
-                        String selectQuery = "SELECT * FROM products WHERE id = ?";
-                        java.sql.PreparedStatement pstmtSelect = connection.prepareStatement(selectQuery);
-                        pstmtSelect.setInt(1, idToUpdate);
-                        java.sql.ResultSet rs = pstmtSelect.executeQuery();
-
-                        if (rs.next()) {
-                            String oldName = rs.getString("name");
-                            int oldQty = rs.getInt("quantity");
-                            double oldPrice = rs.getDouble("price");
-
-                            System.out.println("-> Βρέθηκε: " + oldName + " | " + oldQty + " τεμ. | " + oldPrice + "€");
-                            System.out.println("(Πάτησε ENTER αν θέλεις να κρατήσεις την παλιά τιμή)\n");
-
-                            System.out.print("Νέο όνομα [" + oldName + "]: ");
-                            String changeName = input.nextLine();
-                            if (changeName.trim().isEmpty()) {
-                                changeName = oldName;
-                            }
-
-                            System.out.print("Νέα ποσότητα [" + oldQty + "]: ");
-                            String qtyInput = input.nextLine();
-                            int changeQty;
-                            if (qtyInput.trim().isEmpty()){
-                                changeQty = oldQty;
-                            } else {
-                                changeQty = Integer.parseInt(qtyInput);
-                            }
-
-                            System.out.print("Νέα τιμή [" + oldPrice + "]: ");
-                            String priceInput = input.nextLine();
-                            double changePrice;
-                            if (priceInput.trim().isEmpty()){
-                                changePrice = oldPrice;
-                            } else {
-                                changePrice = Double.parseDouble(priceInput);
-                            }
-
-                            String updateQuery = "UPDATE products SET name = ?, quantity = ?, price = ? WHERE id = ?";
-                            java.sql.PreparedStatement pstmtUpdate = connection.prepareStatement(updateQuery);
-                            pstmtUpdate.setString(1, changeName);
-                            pstmtUpdate.setInt(2, changeQty);
-                            pstmtUpdate.setDouble(3, changePrice);
-                            pstmtUpdate.setInt(4, idToUpdate);
-
-                            pstmtUpdate.executeUpdate();
-                            System.out.println("Οι αλλαγές έγιναν με επιτυχία!");
-                        } else {
-                            System.out.println("Δεν βρέθηκε προϊόν με αυτό το ID/id.");
-                        }
-                    } catch (Exception e) {
-                        System.out.println("Σφάλμα κατά την αλλαγή: " + e.getMessage());
-                    }
-                    break;
-                case 5:
+                case "5":
+                    running = false;
                     System.out.println("Κλείσιμο εφαρμογής.");
-                    isRunning = false;
                     break;
+
                 default:
-                    System.out.println("Λάθος επιλογή. Διάλεξε από 1 εώς 5.");
+                    System.out.println("Λάθος επιλογή. Παρακαλώ δοκιμάστε ξανά.");
                     break;
             }
         }
-        input.close();
+        scanner.close();
     }
 }
